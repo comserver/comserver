@@ -18,13 +18,15 @@ const (
 	FlowControlRI  byte = 0x08 // Ring Indicator
 )
 
-// SerialConfig represents the configuration for a serial port connection
+// SerialConfig represents serial port configuration
 type SerialConfig struct {
-	Address  string `yaml:"address"`  // Serial port address (e.g., COM1, /dev/ttyUSB0)
-	BaudRate int    `yaml:"baudrate"` // Communication speed in bits per second
-	StopBits int    `yaml:"stopbits"` // Number of stop bits (1 or 2)
-	DataBits int    `yaml:"databits"` // Number of data bits
-	Parity   string `yaml:"parity"`   // Parity mode (N: None, E: Even, O: Odd)
+	Address   string `yaml:"address"`    // 串口地址
+	BaudRate  int    `yaml:"baudrate"`   // 波特率
+	DataBits  int    `yaml:"databits"`   // 数据位
+	StopBits  int    `yaml:"stopbits"`   // 停止位
+	Parity    string `yaml:"parity"`     // 校验位
+	InvertCTS bool   `yaml:"invert_cts"` // 是否反转CTS信号
+	InvertDCD bool   `yaml:"invert_dcd"` // 是否反转DCD信号
 }
 
 // ToSerialMode converts SerialConfig to serial.Mode
