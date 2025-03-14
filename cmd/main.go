@@ -19,7 +19,7 @@ import (
 // serialYmlContent reads serial configuration from file or stdin
 func serialYmlContent(serialYml string) (serialYmlContent []byte, err error) {
 	if serialYml == "-" {
-		fmt.Printf("[Config] Loading from stdin\n")
+		fmt.Printf("[Config] Loading configuration from stdin\n")
 		buffer := &bytes.Buffer{}
 		if _, err = io.Copy(buffer, os.Stdin); err == nil {
 			serialYmlContent = buffer.Bytes()
@@ -52,7 +52,7 @@ func main() {
 	} else if *connectAddrShort != "" {
 		addr = *connectAddrShort
 	} else {
-		log.Fatal("Must specify either --listen/-l or --connect/-c parameter")
+		log.Fatal("[System] Must specify either --listen/-l or --connect/-c parameter")
 	}
 
 	// Handle config file path
@@ -63,16 +63,16 @@ func main() {
 	// Read config file
 	serialYmlContent, err := serialYmlContent(serialYml)
 	if err != nil {
-		log.Fatalf("Failed to read serial config: %v", err.Error())
+		log.Fatalf("[Config] Failed to read configuration: %v", err.Error())
 		return
 	}
 
 	serialConfig := &config.SerialConfig{}
 	if err := yaml.Unmarshal(serialYmlContent, serialConfig); err != nil {
-		log.Fatalf("Failed to parse serial config: %v", err.Error())
+		log.Fatalf("[Config] Failed to parse configuration: %v", err.Error())
 		return
 	}
-	log.Printf("Serial config: %#v", serialConfig)
+	log.Printf("[Config] Loaded: address=%s, baudrate=%d", serialConfig.Address, serialConfig.BaudRate)
 
 	ctx := context.Background()
 
@@ -81,10 +81,10 @@ func main() {
 		// Listen mode
 		listener, err := network.ListenAndServe(ctx, addr)
 		if err != nil {
-			log.Fatalf("Failed to listen on address: %v", err.Error())
+			log.Fatalf("[Network] Failed to start server: %v", err.Error())
 		}
 		defer listener.Close()
-		log.Printf("Listening on %v", listener.Addr())
+		log.Printf("[Network] Server listening on %v", listener.Addr())
 		for {
 			if !network.HandleListener(ctx, listener, serialConfig) {
 				break
@@ -92,10 +92,10 @@ func main() {
 		}
 	} else {
 		// Connect mode
-		log.Printf("Connecting to %v", addr)
+		log.Printf("[Network] Connecting to %v", addr)
 		for {
 			if err := network.HandleConnect(ctx, addr, serialConfig); err != nil {
-				log.Printf("Connection failed: %v", err.Error())
+				log.Printf("[Network] Connection failed: %v", err.Error())
 				// Wait before retry
 				select {
 				case <-ctx.Done():

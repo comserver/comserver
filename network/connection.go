@@ -26,14 +26,14 @@ func ListenAndServe(ctx context.Context, url string) (net.Listener, error) {
 func HandleListener(ctx context.Context, listener net.Listener, serialConfig *config.SerialConfig) bool {
 	conn, err := listener.Accept()
 	if err != nil {
-		log.Fatalf("Failed to accept connection: %v", err.Error())
+		log.Fatalf("[Network] Failed to accept connection: %v", err.Error())
 		return false
 	}
 	defer conn.Close()
-	log.Println("New connection established")
+	log.Printf("[Network] New connection from %v", conn.RemoteAddr())
 
 	if err := serial.Handler(ctx, conn, serialConfig); err != nil {
-		log.Printf("Failed to handle connection: %v", err)
+		log.Printf("[Network] Connection handler error: %v", err)
 	}
 	return true
 }
@@ -54,7 +54,7 @@ func HandleConnect(ctx context.Context, addr string, serialConfig *config.Serial
 		return fmt.Errorf("failed to connect: %v", err)
 	}
 	defer conn.Close()
-	log.Println("Connection established")
+	log.Printf("[Network] Connected to %v", conn.RemoteAddr())
 
 	return serial.Handler(ctx, conn, serialConfig)
 }

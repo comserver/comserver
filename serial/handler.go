@@ -61,7 +61,7 @@ func Handler(ctx context.Context, conn net.Conn, serialConfig *config.SerialConf
 		return fmt.Errorf("failed to open serial port: %v", err)
 	}
 	defer serialHandler.Close()
-	log.Printf("Serial port opened")
+	log.Printf("[Serial] Port %s opened with baudrate %d", serialConfig.Address, serialConfig.BaudRate)
 
 	// Data forwarding
 	ctxConn, cancelCtxConn := context.WithCancel(ctx)
@@ -73,34 +73,32 @@ func Handler(ctx context.Context, conn net.Conn, serialConfig *config.SerialConf
 		for {
 			p, err := packet.Read(conn)
 			if err != nil {
-				log.Printf("Error reading packet: %v", err)
+				log.Printf("[Network] Error reading packet: %v", err)
 				return
 			}
 
 			switch p.Type {
 			case config.PacketTypeData:
-				log.Printf("Writing %d bytes to serial port", len(p.Data))
 				if _, err := serialHandler.Write(p.Data); err != nil {
-					log.Printf("Error writing to serial port: %v", err)
+					log.Printf("[Serial] Error writing data: %v", err)
 					return
 				}
-				log.Printf("Successfully wrote %d bytes to serial port", len(p.Data))
+				log.Printf("[Network->Serial] Forwarded %d bytes", len(p.Data))
 			case config.PacketTypeFlow:
 				if len(p.Data) < 1 {
-					log.Printf("Invalid flow control packet")
+					log.Printf("[Network] Invalid flow control packet")
 					continue
 				}
 				// 设置串口流控状态
-				log.Printf("Received flow control status: 0x%02x", p.Data[0])
 				if err := setModemControlLines(serialHandler, p.Data[0]); err != nil {
-					log.Printf("Error setting modem control lines: %v", err)
+					log.Printf("[Serial] Error setting flow control: %v", err)
 					continue
 				}
-				log.Printf("Set modem control lines: RTS=%v,DTR=%v",
+				log.Printf("[Network->Serial] Flow control: RTS=%v, DTR=%v",
 					p.Data[0]&config.FlowControlCTS != 0,
 					p.Data[0]&config.FlowControlDCD != 0)
 			default:
-				log.Printf("Unknown packet type: 0x%02x", p.Type)
+				log.Printf("[Network] Unknown packet type: 0x%02x", p.Type)
 			}
 		}
 	}()
@@ -111,23 +109,21 @@ func Handler(ctx context.Context, conn net.Conn, serialConfig *config.SerialConf
 		buf := make([]byte, 0xFF-1)
 
 		for {
-			// 读取串口数据
 			n, err := serialHandler.Read(buf)
 			if err != nil {
-				log.Printf("Error reading from serial port: %v", err)
+				log.Printf("[Serial] Error reading data: %v", err)
 				return
 			}
-			log.Printf("Read %d bytes from serial port", n)
 
-			// 发送数据包
 			p := &packet.Packet{
 				Type: config.PacketTypeData,
 				Data: buf[:n],
 			}
 			if err := packet.Write(conn, p); err != nil {
-				log.Printf("Error writing packet: %v", err)
+				log.Printf("[Network] Error writing packet: %v", err)
 				return
 			}
+			log.Printf("[Serial->Network] Forwarded %d bytes", n)
 		}
 	}()
 
@@ -145,22 +141,24 @@ func Handler(ctx context.Context, conn net.Conn, serialConfig *config.SerialConf
 			case <-ticker.C:
 				modemStatus, err := serialHandler.GetModemStatusBits()
 				if err != nil {
-					log.Printf("Error getting modem status: %v", err)
+					log.Printf("[Serial] Error reading modem status: %v", err)
 					continue
 				}
 
 				currentStatus := convertModemStatusToByte(modemStatus, serialConfig)
 				if currentStatus != lastModemStatus {
-					log.Printf("Modem status changed: CTS=%v, DCD=%v",
+					log.Printf("[Serial] Modem status changed: CTS=%v, DSR=%v, DCD=%v, RI=%v",
 						modemStatus.CTS,
-						modemStatus.DCD)
+						modemStatus.DSR,
+						modemStatus.DCD,
+						modemStatus.RI)
 					lastModemStatus = currentStatus
 					p := &packet.Packet{
 						Type: config.PacketTypeFlow,
 						Data: []byte{currentStatus},
 					}
 					if err := packet.Write(conn, p); err != nil {
-						log.Printf("Error writing flow control packet: %v", err)
+						log.Printf("[Network] Error writing flow control packet: %v", err)
 						return
 					}
 				}
@@ -169,6 +167,6 @@ func Handler(ctx context.Context, conn net.Conn, serialConfig *config.SerialConf
 	}()
 
 	<-ctxConn.Done()
-	log.Println("Connection closed")
+	log.Println("[System] Connection closed")
 	return nil
 }
