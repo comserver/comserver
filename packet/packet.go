@@ -3,7 +3,6 @@ package packet
 import (
 	"fmt"
 	"io"
-	"log"
 )
 
 // Packet represents a network packet
@@ -24,7 +23,6 @@ func Read(conn io.Reader) (*Packet, error) {
 		return nil, fmt.Errorf("failed to read packet length: %v (read %d bytes)", err, n)
 	}
 	length := int(lengthBuf[0])
-	log.Printf("Reading packet, length: %d", length)
 
 	if length < 1 {
 		return nil, fmt.Errorf("invalid packet length: %d", length)
@@ -44,7 +42,6 @@ func Read(conn io.Reader) (*Packet, error) {
 		Type: data[0],
 		Data: data[1:],
 	}
-	log.Printf("Read packet: type=0x%02x, data length=%d", packet.Type, len(packet.Data))
 	return packet, nil
 }
 
@@ -52,8 +49,6 @@ func Read(conn io.Reader) (*Packet, error) {
 func Write(conn io.Writer, p *Packet) error {
 	// Prepare packet data
 	data := append([]byte{p.Type}, p.Data...)
-
-	log.Printf("Writing packet: type=0x%02x, total length=%d", p.Type, len(data))
 
 	// Write packet length
 	if _, err := conn.Write([]byte{byte(len(data))}); err != nil {
